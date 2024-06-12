@@ -337,6 +337,8 @@ include third_party/libcxxabi/test/BUILD.mk
 include examples/BUILD.mk
 include examples/pyapp/BUILD.mk
 include examples/pylife/BUILD.mk
+include third_party/mruby/BUILD.mk
+include examples/mruby/BUILD.mk
 include tool/decode/lib/BUILD.mk
 include tool/decode/BUILD.mk
 include tool/lambda/lib/BUILD.mk

@@ -4,6 +4,11 @@
 /cosmocc
 /.cosmocc
 
+# mruby specific
+/third_party/mruby/mruby.h
+/third_party/mruby/mrbconf.h
+/third_party/mruby/mruby/*
+
 # TODO: Find some way to have Python write to o/
 __pycache__
 
