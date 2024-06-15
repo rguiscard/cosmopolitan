@@ -70,6 +70,7 @@ TOOL_NET_DIRECTDEPS =							\
 	TOOL_ARGS							\
 	TOOL_BUILD_LIB							\
 	TOOL_DECODE_LIB							\
+	THIRD_PARTY_MRUBY						\
 	THIRD_PARTY_DOUBLECONVERSION
 
 TOOL_NET_DEPS :=							\
@@ -118,6 +119,33 @@ o/$(MODE)/tool/net/redbean.dbg:						\
 o/$(MODE)/tool/net/lsqlite3.o: private					\
 		CFLAGS +=						\
 			-DSQLITE_ENABLE_SESSION
+# REDBEAN-MRUBY
+#
+# The little web server that could!
+
+o/$(MODE)/tool/net/redbean-mruby.dbg:					\
+		$(TOOL_NET_DEPS)					\
+		$(TOOL_NET_REDBEAN_LUA_MODULES)				\
+		o/$(MODE)/tool/net/mruby/redbean-mruby.o		\
+		o/$(MODE)/tool/net/mruby/test.o				\
+		o/$(MODE)/tool/net/.init.lua.zip.o			\
+		o/$(MODE)/tool/net/favicon.ico.zip.o			\
+		o/$(MODE)/tool/net/redbean.png.zip.o			\
+		o/$(MODE)/tool/net/help.txt.zip.o			\
+		o/$(MODE)/tool/net/net.pkg				\
+		$(CRT)							\
+		$(APE_NO_MODIFY_SELF)
+	@$(APELINK)
+
+o/$(MODE)/tool/net/mruby/test.o: private				\
+		CFLAGS +=						\
+			-I third_party/mruby/				\
+			-I tool/net/mruby/
+
+o/$(MODE)/tool/net/mruby/redbean_mruby.o: private			\
+		CFLAGS +=						\
+			-I third_party/mruby/				\
+			-I tool/net/mruby/
 
 # REDBEAN-DEMO
 #

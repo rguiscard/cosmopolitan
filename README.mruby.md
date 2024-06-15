@@ -10,7 +10,7 @@ Go into cosmopolitan directory. Run `make -j8 o//tool/net/redbean` to be sure th
 
 ### mruby
 
-[mruby](https://mruby.org/) has its own compilation system based on rake. Therefore, the static library (`libmruby.a`) can be compiled with `cosmocc` in its project. Go to mruby directory. Put `cosmo.rb` under `build_config/` and compile with `rake BUILD_CONFIG=cosmo`.
+[mruby](https://mruby.org/) has its own compilation system based on rake. Therefore, the static library (`libmruby.a`) can be compiled with `cosmocc` in its project. Go to mruby directory. Put `cosmo.rb` under `build_config/` and compile with `rake MRUBY_CONFIG=cosmo`.
 
 ```
 # build_config/cosmo.rb
@@ -20,7 +20,7 @@ MRuby::CrossBuild.new('cosmo') do |conf|
   toolchain :gcc
 
   # Chage cosmocc version number to match your system
-  COSMO_PATH = "../cosmopolitan/.cosmocc/3.5.5/"
+  COSMO_PATH = "../cosmopolitan/.cosmocc/3.3.5/"
 
   # C compiler
   conf.cc do |cc|
@@ -94,8 +94,14 @@ Please note that mruby headers should stay in `third_party/mruby` while compiled
 
 ### example of mruby under cosmopolitan
 
-Make the example of mruby under cosmopolitan by running `o//examples/mruby/hello`. It creates an executable `o/examples/mruby/hello`. Run it to be sure mruby is correctly installed.
+Make the example of mruby under cosmopolitan by running `o//examples/mruby/hello`. It creates an executable `o/examples/mruby/hello`. Run it to be sure mruby is correctly installed. You can also copy this `hello` to Windows. Rename it as `hello.com`and run. It should work.
 
 ### redbean-mruby (TODO)
 
 Run `make -j8 o//tool/net/redbean-mruby` to get redbean with mruby support.
+
+## TODO
+
+### Suport ARM (aarch64)
+
+On my system, cosmo not only creates `libmruby.a`, but also `.aarch64/libmruby.a`, suggesting support of ARM system. But I don't know how to have its ARM support built into the executable of mruby example under `examples/mruby/hello`.

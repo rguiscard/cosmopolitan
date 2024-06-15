@@ -1,7 +1,4 @@
-#include <stdio.h> 
 #include <stdlib.h> 
-#include <sys/types.h> 
-#include <unistd.h> 
 #include <mruby.h>
 #include <mruby/compile.h>
 #include <mruby/string.h>

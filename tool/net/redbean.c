@@ -136,6 +136,10 @@
 #include "tool/net/luacheck.h"
 #include "tool/net/sandbox.h"
 
+//#ifdef USE_MRUBY
+//#include "tool/net/mruby/redbean-mruby.h"
+//#endif
+
 #pragma GCC diagnostic ignored "-Wunused-variable"
 
 STATIC_STACK_ALIGN(GetStackSize());
@@ -7459,6 +7463,9 @@ static void GetOpts(int argc, char *argv[]) {
         CASE('i', interpretermode = true);
         CASE('E', leakcrashreports = true);
       case 'e':
+#ifdef USE_MRUBY
+	test_mruby();
+#endif
         got_e_arg = true;
         LuaEvalCode(optarg);
         break;
