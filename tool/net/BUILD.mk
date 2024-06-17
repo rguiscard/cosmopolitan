@@ -127,7 +127,6 @@ o/$(MODE)/tool/net/redbean-mruby.dbg:					\
 		$(TOOL_NET_DEPS)					\
 		$(TOOL_NET_REDBEAN_LUA_MODULES)				\
 		o/$(MODE)/tool/net/mruby/redbean-mruby.o		\
-		o/$(MODE)/tool/net/mruby/test.o				\
 		o/$(MODE)/tool/net/.init.lua.zip.o			\
 		o/$(MODE)/tool/net/favicon.ico.zip.o			\
 		o/$(MODE)/tool/net/redbean.png.zip.o			\
@@ -137,12 +136,7 @@ o/$(MODE)/tool/net/redbean-mruby.dbg:					\
 		$(APE_NO_MODIFY_SELF)
 	@$(APELINK)
 
-o/$(MODE)/tool/net/mruby/test.o: private				\
-		CFLAGS +=						\
-			-I third_party/mruby/				\
-			-I tool/net/mruby/
-
-o/$(MODE)/tool/net/mruby/redbean_mruby.o: private			\
+o/$(MODE)/tool/net/mruby/redbean-mruby.o: private			\
 		CFLAGS +=						\
 			-I third_party/mruby/				\
 			-I tool/net/mruby/

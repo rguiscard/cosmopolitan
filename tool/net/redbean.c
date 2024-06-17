@@ -136,10 +136,6 @@
 #include "tool/net/luacheck.h"
 #include "tool/net/sandbox.h"
 
-//#ifdef USE_MRUBY
-//#include "tool/net/mruby/redbean-mruby.h"
-//#endif
-
 #pragma GCC diagnostic ignored "-Wunused-variable"
 
 STATIC_STACK_ALIGN(GetStackSize());
@@ -5629,6 +5625,9 @@ static void LuaInit(void) {
   if (interpretermode) {
     int rc = LuaInterpreter(L);
     LuaDestroy();
+#ifdef USE_MRUBY
+    mrubyDestroy();
+#endif
     MemDestroy();
     if (IsModeDbg()) {
       CheckForMemoryLeaks();
@@ -6688,6 +6687,9 @@ static int ExitWorker(void) {
     }
   }
   LuaDestroy();
+#ifdef USE_MRUBY
+  mrubyDestroy();
+#endif
   _Exit(0);
 }
 
@@ -7545,6 +7547,9 @@ void RedBean(int argc, char *argv[]) {
     WARNF("(srvr) failed to query system network interface addresses: %m");
   }
   LuaStart();
+#ifdef USE_MRUBY
+  mrubyStart();
+#endif
   GetOpts(argc, argv);
 #ifndef STATIC
   if (selfmodifiable) {
@@ -7552,6 +7557,9 @@ void RedBean(int argc, char *argv[]) {
   }
 #endif
   LuaInit();
+#ifdef USE_MRUBY
+  mrubyInit();
+#endif
   oldloglevel = __log_level;
   if (uniprocess) {
     shared->workers = 1;
@@ -7615,6 +7623,9 @@ void RedBean(int argc, char *argv[]) {
   }
   if (!IsTiny()) {
     LuaDestroy();
+#ifdef USE_MRUBY
+    mrubyDestroy();
+#endif
     TlsDestroy();
     MemDestroy();
   }
