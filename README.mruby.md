@@ -104,4 +104,4 @@ Run `make -j8 o//tool/net/redbean-mruby` to get redbean with mruby support.
 
 ### Suport ARM (aarch64)
 
-On my system, cosmo not only creates `libmruby.a`, but also `.aarch64/libmruby.a`, suggesting support of ARM system. But I don't know how to have its ARM support built into the executable of mruby example under `examples/mruby/hello`.
+On my system, cosmo not only creates `libmruby.a`, but also `.aarch64/libmruby.a`, suggesting support of ARM system. But I don't know how to have its ARM support built into the executable of mruby example under `o/examples/mruby/hello`.

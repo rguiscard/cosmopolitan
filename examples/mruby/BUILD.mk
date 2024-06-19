@@ -47,30 +47,30 @@ EXAMPLES_MRUBY_DIRECTDEPS =                                             \
 EXAMPLES_MRUBY_DEPS :=							\
 	$(call uniq,$(foreach x,$(EXAMPLES_MRUBY_DIRECTDEPS),$($(x))))
 
-o/$(MODE)/examples/mruby/mruby.pkg:						\
+o/$(MODE)/examples/mruby/mruby.pkg:					\
 		$(EXAMPLES_MRUBY_OBJS)					\
 		$(foreach x,$(EXAMPLES_MRUBY_DIRECTDEPS),$($(x)_A).pkg)
 
 o/$(MODE)/examples/mruby/%.dbg:						\
 		$(EXAMPLES_MRUBY_DEPS)					\
-		o/$(MODE)/examples/mruby/%.o					\
-		o/$(MODE)/examples/mruby/mruby.pkg				\
+		o/$(MODE)/examples/mruby/%.o				\
+		o/$(MODE)/examples/mruby/mruby.pkg			\
 		$(CRT)							\
 		$(APE_NO_MODIFY_SELF)
 	@$(APELINK)
 
-o/$(MODE)/examples/mruby/hello.o: private                                  \
+o/$(MODE)/examples/mruby/hello.o: private				\
                 CFLAGS += -I third_party/mruby/                                         
 
-o/$(MODE)/examples/mruby/hello.dbg:						\
+o/$(MODE)/examples/mruby/hello.dbg:					\
 		$(EXAMPLES_MRUBY_DEPS)					\
-		o/$(MODE)/examples/mruby/hello.o				\
-		o/$(MODE)/examples/mruby/hello.pkg				\
+		o/$(MODE)/examples/mruby/hello.o			\
+		o/$(MODE)/examples/mruby/hello.pkg			\
 		$(CRT)							\
 		$(APE_NO_MODIFY_SELF)
 	@$(APELINK)
 
 .PHONY: o/$(MODE)/examples/mruby
-o/$(MODE)/examples/mruby:							\
+o/$(MODE)/examples/mruby:						\
 		$(EXAMPLES_MRUBY_BINS)					\
 		$(EXAMPLES_MRUBY_CHECKS)

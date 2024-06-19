@@ -131,6 +131,7 @@ o/$(MODE)/tool/net/redbean-mruby.dbg:					\
 		o/$(MODE)/tool/net/favicon.ico.zip.o			\
 		o/$(MODE)/tool/net/redbean.png.zip.o			\
 		o/$(MODE)/tool/net/help.txt.zip.o			\
+                o/$(MODE)/tool/net/mruby/hello.mrb.zip.o		\
 		o/$(MODE)/tool/net/net.pkg				\
 		$(CRT)							\
 		$(APE_NO_MODIFY_SELF)
@@ -140,6 +141,13 @@ o/$(MODE)/tool/net/mruby/redbean-mruby.o: private			\
 		CFLAGS +=						\
 			-I third_party/mruby/				\
 			-I tool/net/mruby/
+
+o/$(MODE)/tool/net/mruby/hello.mrb.zip.o: private			\
+		ZIPOBJ_FLAGS +=						\
+			-B
+
+o/$(MODE)/tool/net/demo/mruby/.zip.o:					\
+		tool/net/demo/mruby
 
 # REDBEAN-DEMO
 #

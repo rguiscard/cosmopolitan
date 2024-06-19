@@ -10,6 +10,28 @@
 
 static mrb_state *mrb;
 
+int mrubyRunCode(char *code, char **outbuf) {
+    mrb_value result = mrb_load_string(mrb, code);
+
+    if (mrb->exc) {
+        mrb_print_error(mrb);
+    } else {
+	char *output;
+        if (mrb_nil_p(result)) {
+	    output = ""; // nil
+        } else if (mrb_string_p(result)) {
+	    // string
+            output = mrb_str_to_cstr(mrb, result);
+        } else {
+            // others
+            output = mrb_str_to_cstr(mrb, mrb_inspect(mrb, result));
+        }
+	appends(outbuf, output);
+    }
+
+    return 0;
+}
+
 static void mrubyStart(void) {
     mrb = mrb_open();
 }

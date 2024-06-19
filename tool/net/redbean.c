@@ -3315,6 +3315,44 @@ static char *ServeLua(struct Asset *a, const char *s, size_t n) {
   return ServeError(500, "Internal Server Error");
 }
 
+#ifdef USE_MRUBY
+static char *ServeMRuby(struct Asset *a, const char *s, size_t n) {
+  char *code;
+  char *error;
+  size_t codelen;
+  LockInc(&shared->c.dynamicrequests);
+  effectivepath.p = (void *)s;
+  effectivepath.n = n;
+  if ((code = FreeLater(LoadAsset(a, &codelen)))) {
+    int status = mrubyRunCode(code, &cpm.outbuf);
+    if (status == 0) { // OK
+      UseOutput();
+      return CommitOutput(SetStatus(200, "OK"));
+    } else {
+      // Error
+    }
+/*
+    lua_State *L = GL;
+    int status =
+        luaL_loadbuffer(L, code, codelen,
+                        FreeLater(xasprintf("@%s", FreeLater(strndup(s, n)))));
+    if (status == LUA_OK && LuaCallWithYield(L) == LUA_OK) {
+      return CommitOutput(GetLuaResponse());
+    } else {
+      char *error;
+      LogLuaError("lua code", lua_tostring(L, -1));
+      error = ServeErrorWithDetail(
+          500, "Internal Server Error",
+          ShouldServeCrashReportDetails() ? lua_tostring(L, -1) : NULL);
+      lua_pop(L, 1);  // pop error
+      return error;
+    }
+*/
+  }
+  return ServeError(500, "Internal Server Error");
+}
+#endif
+
 static char *HandleRedirect(struct Redirect *r) {
   int code;
   struct Asset *a;
@@ -5625,9 +5663,6 @@ static void LuaInit(void) {
   if (interpretermode) {
     int rc = LuaInterpreter(L);
     LuaDestroy();
-#ifdef USE_MRUBY
-    mrubyDestroy();
-#endif
     MemDestroy();
     if (IsModeDbg()) {
       CheckForMemoryLeaks();
@@ -6224,11 +6259,32 @@ static inline bool IsLua(struct Asset *a) {
          READ32LE(p + n - 4) == ('.' | 'l' << 8 | 'u' << 16 | 'a' << 24);
 }
 
+#ifdef USE_MRUBY
+// FIXME: use .rb instead of .mrb
+static inline bool IsMRuby(struct Asset *a) {
+  size_t n;
+  const char *p;
+  if (a->file && a->file->path.n >= 4 &&
+      READ32LE(a->file->path.s + a->file->path.n - 4) ==
+          ('.' | 'm' << 8 | 'r' << 16 | 'b' << 24)) {
+    return true;
+  }
+  p = ZIP_CFILE_NAME(zmap + a->cf);
+  n = ZIP_CFILE_NAMESIZE(zmap + a->cf);
+  return n > 4 &&
+         READ32LE(p + n - 4) == ('.' | 'm' << 8 | 'r' << 16 | 'b' << 24);
+}
+#endif
+
 static char *HandleAsset(struct Asset *a, const char *path, size_t pathlen) {
   char *p;
 #ifndef STATIC
   if (IsLua(a))
     return ServeLua(a, path, pathlen);
+#ifdef USE_MRUBY
+  if (IsMRuby(a))
+    return ServeMRuby(a, path, pathlen);
+#endif
 #endif
   if (cpm.msg.method == kHttpGet || cpm.msg.method == kHttpHead) {
     LockInc(&shared->c.staticrequests);

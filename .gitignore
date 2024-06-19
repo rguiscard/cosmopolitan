@@ -13,6 +13,7 @@
 __pycache__
 
 *.tmp
+*.swp
 /.bochs.log
 /HTAGS
 /TAGS
