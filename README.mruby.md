@@ -6,7 +6,7 @@ This fork tries to replace Lua with [mruby](https://mruby.org/). There is nothin
 
 ### cosmopolitan toolchain
 
-Go into cosmopolitan directory. Run `make -j8 o//tool/net/redbean` to be sure that *cosmopolitan* runs on your system. It also downloads necessary files to kick start.
+Go into cosmopolitan directory. Run `make -j8 o//tool/net/redbean` to be sure that *cosmopolitan* runs on your system. It also downloads necessary files to kick start. You may need to run `ape/apeinstall.sh` first for WSL. It may also download cosmocc.zip which will be installed under `.cosmocc` in cosmopolitan directory.
 
 ### mruby
 
@@ -77,7 +77,7 @@ end
 
 ### third_party/mruby
 
-Go back to cosmopolitan directory (e.g. `../cosmopolitan`). Make dummy mruby package by running `make o//third_party/mruby`. It creates a mruby package under `o/third_party/mruby`, but lacks real mruby library. Copy `libmruby.a` from `../mruby/build/cosmo/lib/` to `o/third_party/mruby` so that the rest of cosmopolitan can use it. Also copy everything in `../mruby/build/cosmo/mruby/include/` to `third_party/mruby/` directory. These are headers of mruby and associated gems. The final file structure should looks like this:
+Go back to cosmopolitan directory (e.g. `../cosmopolitan`). Make dummy mruby package by running `make o//third_party/mruby`. It creates a mruby package under `o/third_party/mruby`, but lacks real mruby library. Copy `libmruby.a` from `../mruby/build/cosmo/lib/` to `o/third_party/mruby` so that the rest of cosmopolitan can use it. Also copy everything in `../mruby/build/cosmo/include/` to `third_party/mruby/` directory. These are headers of mruby and associated gems. The final file structure should looks like this:
 
 ```
 third_party/mruby/BUILD.mk
@@ -94,7 +94,7 @@ Please note that mruby headers should stay in `third_party/mruby` while compiled
 
 ### example of mruby under cosmopolitan
 
-Make the example of mruby under cosmopolitan by running `o//examples/mruby/hello`. It creates an executable `o/examples/mruby/hello`. Run it to be sure mruby is correctly installed. You can also copy this `hello` to Windows. Rename it as `hello.com`and run. It should work.
+Make the example of mruby under cosmopolitan by running `o//examples/mruby/hello`. It creates an executable `o/examples/mruby/hello`. Run it to be sure mruby is correctly installed. You can also copy this `hello` to Windows. Rename it as `hello.com`and run. It should work. If there is any error, check file size of libmruby.a under `o/third_part/mruby` and see whether it is overrided with a dummy one. If so, copy the real one from mruby directory again.
 
 ### redbean-mruby (TODO)
 
