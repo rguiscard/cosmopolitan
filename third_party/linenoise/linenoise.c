@@ -138,14 +138,13 @@
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/fmt/conv.h"
-#include "libc/intrin/asan.internal.h"
 #include "libc/serialize.h"
 #include "libc/intrin/bsr.h"
-#include "libc/intrin/nomultics.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/nomultics.h"
+#include "libc/intrin/strace.h"
 #include "libc/log/check.h"
 #include "libc/log/log.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/mem/alg.h"
 #include "libc/mem/mem.h"
 #include "libc/nexgen32e/rdtsc.h"
@@ -156,7 +155,7 @@
 #include "libc/stdio/append.h"
 #include "libc/stdio/stdio.h"
 #include "libc/str/str.h"
-#include "libc/str/tab.internal.h"
+#include "libc/str/tab.h"
 #include "libc/str/unicode.h"
 #include "libc/sysv/consts/fileno.h"
 #include "libc/sysv/consts/map.h"
@@ -169,6 +168,7 @@
 #include "libc/sysv/consts/termios.h"
 #include "libc/sysv/errfuns.h"
 #include "net/http/escape.h"
+#include "libc/wctype.h"
 #include "tool/build/lib/case.h"
 
 __notice(linenoise_notice, "\
@@ -408,9 +408,7 @@ static int linenoiseIsUnsupportedTerm(void) {
   char *term;
   static char once, res;
   if (!once) {
-    if (IsWindows()) {
-      res = 1;
-    } else if ((term = getenv("TERM"))) {
+    if ((term = getenv("TERM"))) {
       for (i = 0; i < sizeof(kUnsupported) / sizeof(*kUnsupported); i++) {
         if (!strcasecmp(term, kUnsupported[i])) {
           res = 1;

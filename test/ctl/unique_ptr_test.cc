@@ -16,90 +16,84 @@
 // TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 // PERFORMANCE OF THIS SOFTWARE.
 
+#include "ctl/is_same.h"
 #include "ctl/unique_ptr.h"
-
-#include <type_traits>
-
-#include "libc/runtime/runtime.h"
+#include "libc/mem/leaks.h"
 
 // #include <memory>
+// #include <type_traits>
 // #define ctl std
 
-template<typename T, typename D = ctl::default_delete<T>>
-using Ptr = ctl::unique_ptr<T, D>;
-
-template<typename T, typename... Args>
-Ptr<T>
-Mk(Args&&... args)
-{
-    return ctl::make_unique<T, Args...>(std::forward<Args>(args)...);
-}
-
-template<typename T>
-Ptr<T>
-MkRaw()
-{
-    return ctl::make_unique_for_overwrite<T>();
-}
+using ctl::unique_ptr;
+using ctl::make_unique;
+using ctl::make_unique_for_overwrite;
 
 #undef ctl
 
+// The following few definitions are used to get observability into aspects of
+// an object's lifecycle, to make sure that e.g. constructing a unique_ptr of a
+// type does not construct an object, and that make_unique does construct an
+// object.
 static int g = 0;
 
-struct SetsGDeleter
+struct ConstructG
 {
-    void operator()(auto*) const noexcept
+    ConstructG()
     {
         ++g;
     }
 };
 
-struct StatefulDeleter
+struct DestructG
 {
-    char state;
-    void operator()(auto*) const noexcept
+    ~DestructG()
     {
+        ++g;
     }
 };
+
+struct CallG
+{
+    void operator()(auto* x) const noexcept
+    {
+        ++g;
+    }
+};
+
+// A unique_ptr with an empty deleter should be the same size as a raw pointer.
+static_assert(sizeof(unique_ptr<int, decltype([] {})>) == sizeof(int*));
 
 struct FinalDeleter final
 {
-    void operator()(auto*) const noexcept
+    void operator()(auto* x) const noexcept
     {
     }
 };
 
-static_assert(sizeof(Ptr<int, SetsGDeleter>) == sizeof(int*));
+// ctl::unique_ptr does not need to inherit from its deleter for this property;
+// the STL often does, though, so we don't hold them to the following.
+static_assert(!ctl::is_same_v<unique_ptr<int>, ctl::unique_ptr<int>> ||
+              sizeof(unique_ptr<int, FinalDeleter>) == sizeof(int*));
 
-// not everyone uses [[no_unique_address]]...
-static_assert(!std::is_same_v<Ptr<int>, ctl::unique_ptr<int>> ||
-              sizeof(Ptr<int, FinalDeleter>) == sizeof(int*));
+struct Base
+{};
 
-struct SetsGCtor
-{
-    SetsGCtor()
-    {
-        ++g;
-    }
-};
-
-struct SetsGDtor
-{
-    ~SetsGDtor()
-    {
-        ++g;
-    }
-};
+struct Derived : Base
+{};
 
 int
 main()
 {
+    int a;
+
     {
-        Ptr<int> x(new int(5));
+        // Shouldn't cause any memory leaks.
+        unique_ptr<int> x(new int(5));
     }
 
     {
-        Ptr<int, SetsGDeleter> x(new int());
+        // Deleter is called if the pointer is non-null when reset.
+        unique_ptr<int, CallG> x(&a);
         x.reset();
         if (g != 1)
             return 1;
@@ -107,22 +101,45 @@ main()
 
     {
         g = 0;
-        Ptr<int, SetsGDeleter> x(new int());
-        delete x.release();
+        // Deleter is not called if the pointer is null when reset.
+        unique_ptr<int, CallG> x(&a);
+        x.release();
         x.reset();
         if (g)
             return 17;
     }
 
     {
-        Ptr<int> x(new int(5)), y(new int(6));
+        g = 0;
+        // Deleter is called when the pointer goes out of scope.
+        {
+            unique_ptr<int, CallG> x(&a);
+        }
+        if (!g)
+            return 18;
+    }
+
+    {
+        g = 0;
+        // Deleter is called if scope ends exceptionally.
+        try {
+            unique_ptr<int, CallG> x(&a);
+            throw 'a';
+        } catch (char) {
+        }
+        if (!g)
+            return 19;
+    }
+
+    {
+        unique_ptr<int> x(new int(5)), y(new int(6));
         x.swap(y);
         if (*x != 6 || *y != 5)
             return 2;
     }
 
     {
-        Ptr<int> x;
+        unique_ptr<int> x;
         if (x)
             return 3;
         x.reset(new int(5));
@@ -132,17 +149,17 @@ main()
 
     {
         g = 0;
-        Ptr<SetsGCtor> x;
+        unique_ptr<ConstructG> x;
         if (g)
             return 5;
-        x = Mk<SetsGCtor>();
+        x = make_unique<ConstructG>();
         if (g != 1)
             return 6;
     }
 
     {
         g = 0;
-        auto x = Mk<SetsGDtor>();
+        auto x = make_unique<DestructG>();
         if (g)
             return 7;
         x.reset();
@@ -154,14 +171,14 @@ main()
 
     {
         g = 0;
-        Ptr<SetsGDtor> x, y;
-        x = Mk<SetsGDtor>();
-        y = Mk<SetsGDtor>();
+        unique_ptr<DestructG> x, y;
+        x = make_unique<DestructG>();
+        y = make_unique<DestructG>();
 #if 0
         // shouldn't compile
         x = y;
 #endif
-        x = std::move(y);
+        x = ctl::move(y);
         if (g != 1)
             return 10;
         if (y)
@@ -171,7 +188,7 @@ main()
     {
         g = 0;
         {
-            auto x = Mk<SetsGDtor>();
+            auto x = make_unique<DestructG>();
         }
         if (g != 1)
             return 12;
@@ -180,10 +197,10 @@ main()
     {
         g = 0;
         {
-            auto x = Mk<SetsGDtor>();
-            x.release();
+            auto x = make_unique<DestructG>();
+            delete x.release();
         }
-        if (g)
+        if (g != 1)
             return 13;
     }
 
@@ -192,13 +209,13 @@ main()
     // side effects it has are illegal to detect?
     {
         g = 0;
-        auto x = MkRaw<DefaultInitialized>();
+        auto x = make_unique_for_overwrite<DefaultInitialized>();
         if (g)
             return 14;
         x.reset();
         if (g)
             return 15;
-        x = Mk<DefaultInitialized>();
+        x = make_unique<DefaultInitialized>();
         if (g != 1)
             return 16;
     }
@@ -207,11 +224,16 @@ main()
     {
         int a;
         // Should compile.
-        Ptr<int, FinalDeleter> x(&a);
-        Ptr<int, StatefulDeleter> y(&a);
+        unique_ptr<int, FinalDeleter> x(&a);
     }
 
-    // next is 18
+    {
+        unique_ptr<Base> x(new Base);
+        x.reset(new Derived);
 
-    return 0;
+        unique_ptr<Derived> y(new Derived);
+        unique_ptr<Base> z(ctl::move(y));
+    }
+
+    CheckForMemoryLeaks();
 }

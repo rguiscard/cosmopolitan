@@ -42,7 +42,8 @@ $(LIBC_MEM_A_OBJS): private				\
 		COPTS +=				\
 			-fno-sanitize=all		\
 			-Wframe-larger-than=4096	\
-			-Walloca-larger-than=4096
+			-Walloca-larger-than=4096	\
+			-fexceptions
 
 o/$(MODE)/libc/mem/asan.o: private			\
 		CFLAGS +=				\
@@ -54,8 +55,7 @@ o/$(MODE)/libc/mem/asan.o: private			\
 			-fno-sanitize=all		\
 			-fno-stack-protector		\
 			-Wframe-larger-than=4096	\
-			-Walloca-larger-than=4096	\
-			-fpatchable-function-entry=0,0
+			-Walloca-larger-than=4096
 
 # make asan stack traces shorter
 o/$(MODE)/libc/mem/asanthunk.o: private			\

@@ -22,6 +22,8 @@
 #include "third_party/nsync/common.internal.h"
 #include "third_party/nsync/mu_semaphore.h"
 #include "third_party/nsync/races.internal.h"
+#include "libc/thread/thread.h"
+#include "libc/intrin/strace.h"
 #include "third_party/nsync/wait_s.internal.h"
 __static_yoink("nsync_notice");
 
@@ -120,7 +122,7 @@ void nsync_mu_lock_slow_ (nsync_mu *mu, waiter *w, uint32_t clear, lock_type *l_
 			   about waiting writers or long waiters. */
 			zero_to_acquire &= ~(MU_WRITER_WAITING | MU_LONG_WAIT);
 		}
-		attempts = nsync_spin_delay_ (attempts);
+		attempts = pthread_delay_np (mu, attempts);
 	}
 	ALLOW_CANCELATION;
 }
@@ -151,6 +153,7 @@ void nsync_mu_lock (nsync_mu *mu) {
 		if ((old_word&MU_WZERO_TO_ACQUIRE) != 0 ||
 		    !ATM_CAS_ACQ (&mu->word, old_word,
 				  (old_word+MU_WADD_TO_ACQUIRE) & ~MU_WCLEAR_ON_ACQUIRE)) {
+			LOCKTRACE("acquiring nsync_mu_lock(%t)...", mu);
 			waiter *w = nsync_waiter_new_ ();
 			nsync_mu_lock_slow_ (mu, w, 0, nsync_writer_type_);
 			nsync_waiter_free_ (w);
@@ -393,7 +396,7 @@ void nsync_mu_unlock_slow_ (nsync_mu *mu, lock_type *l_type) {
 				   released above. */
 				if (testing_conditions) {
 					nsync_spin_test_and_set_ (&mu->word, MU_SPINLOCK,
-								  MU_SPINLOCK, 0);
+								  MU_SPINLOCK, 0, mu);
 				}
 
 				/* add the new_waiters to the last of the waiters. */
@@ -444,7 +447,7 @@ void nsync_mu_unlock_slow_ (nsync_mu *mu, lock_type *l_type) {
 			}
 			return;
 		}
-		attempts = nsync_spin_delay_ (attempts);
+		attempts = pthread_delay_np (mu, attempts);
 	}
 }
 

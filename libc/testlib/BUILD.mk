@@ -22,6 +22,7 @@ LIBC_TESTLIB_A_ASSETS =						\
 LIBC_TESTLIB_A_HDRS =						\
 	libc/testlib/aspect.internal.h				\
 	libc/testlib/bench.h					\
+	libc/testlib/benchmark.h				\
 	libc/testlib/blocktronics.h				\
 	libc/testlib/ezbench.h					\
 	libc/testlib/fastrandomstring.h				\
@@ -111,8 +112,9 @@ LIBC_TESTLIB_A_DIRECTDEPS =					\
 	THIRD_PARTY_COMPILER_RT					\
 	THIRD_PARTY_DLMALLOC					\
 	THIRD_PARTY_GDTOA					\
+	THIRD_PARTY_MUSL					\
+	THIRD_PARTY_TZ						\
 	THIRD_PARTY_XED						\
-	THIRD_PARTY_TZ
 
 LIBC_TESTLIB_A_DEPS :=						\
 	$(call uniq,$(foreach x,$(LIBC_TESTLIB_A_DIRECTDEPS),$($(x))))

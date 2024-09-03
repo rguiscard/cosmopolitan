@@ -20,7 +20,7 @@
 #include "libc/dce.h"
 #include "libc/fmt/internal.h"
 #include "libc/limits.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/nt/files.h"
 #include "libc/sock/sock.h"
 #include "libc/str/str.h"
@@ -63,7 +63,7 @@ int vdprintf(int fd, const char *fmt, va_list va) {
   t.n = 0;
   t.t = 0;
   t.fd = fd;
-  if (__fmt(vdprintf_putc, &t, fmt, va) == -1)
+  if (__fmt(vdprintf_putc, &t, fmt, va, &t.t) == -1)
     return -1;
   if (t.n) {
     iov[0].iov_base = t.b;

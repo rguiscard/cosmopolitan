@@ -17,10 +17,9 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 #include "ctl/optional.h"
+#include "libc/mem/leaks.h"
 
 #include "ctl/string.h"
-
-#include "libc/runtime/runtime.h"
 
 // #include <optional>
 // #include <string>
@@ -63,7 +62,7 @@ main()
 
     {
         ctl::optional<ctl::string> x("world");
-        ctl::optional<ctl::string> y(std::move(x));
+        ctl::optional<ctl::string> y(ctl::move(x));
         if (!y)
             return 9;
         if (!y.has_value())
@@ -87,7 +86,7 @@ main()
     {
         ctl::optional<ctl::string> x("hello");
         ctl::optional<ctl::string> y;
-        y = std::move(x);
+        y = ctl::move(x);
         if (!y)
             return 16;
         if (!y.has_value())
@@ -131,5 +130,4 @@ main()
     }
 
     CheckForMemoryLeaks();
-    return 0;
 }

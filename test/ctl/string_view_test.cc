@@ -17,10 +17,7 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 #include "ctl/string_view.h"
-
-#include <__utility/move.h>
-
-#include "libc/runtime/runtime.h"
+#include "libc/mem/leaks.h"
 #include "libc/str/str.h"
 
 // #include <string_view>
@@ -90,7 +87,7 @@ main(int argc, char* argv[])
 
     {
         ctl::string_view s = "hello";
-        ctl::string_view s2 = std::move(s);
+        ctl::string_view s2 = ctl::move(s);
         if (s2 != "hello")
             return 16;
         if (s.empty())
@@ -176,5 +173,4 @@ main(int argc, char* argv[])
     }
 
     CheckForMemoryLeaks();
-    return 0;
 }

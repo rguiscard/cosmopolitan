@@ -23,9 +23,8 @@
 #include "libc/calls/struct/timespec.internal.h"
 #include "libc/calls/struct/timeval.h"
 #include "libc/dce.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/describeflags.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/describeflags.h"
+#include "libc/intrin/strace.h"
 #include "libc/sock/internal.h"
 #include "libc/sock/select.h"
 #include "libc/sock/select.internal.h"
@@ -33,7 +32,7 @@
 #include "libc/sysv/errfuns.h"
 
 /**
- * Does what poll() does except with bitset API.
+ * Checks status on multiple file descriptors at once.
  *
  * This function is the same as saying:
  *
@@ -42,15 +41,23 @@
  *     select(nfds, readfds, writefds, exceptfds, timeout);
  *     sigprocmask(SIG_SETMASK, old, 0);
  *
- * Except it happens atomically.
+ * Except it happens atomically. Unlike ppoll() Cosmo guarantees this is
+ * atomic on all supported platforms.
  *
- * The Linux Kernel modifies the timeout parameter. This wrapper gives
- * it a local variable due to POSIX requiring that `timeout` be const.
- * If you need that information from the Linux Kernel use sys_pselect.
- *
- * This system call is supported on all platforms. It's like select()
- * except that it atomically changes the sigprocmask() during the op.
- *
+ * @param nfds is the number of the highest file descriptor set in these
+ *     bitsets by the caller, plus one; this value can't be greater than
+ *     `FD_SETSIZE` which Cosmopolitan currently defines as 1024 because
+ *     `fd_set` has a static size
+ * @param readfds may be used to be notified when you can call read() on
+ *     a file descriptor without it blocking; this includes when data is
+ *     is available to be read as well as eof and error conditions
+ * @param writefds may be used to be notified when write() may be called
+ *     on a file descriptor without it blocking
+ * @param exceptfds may be used to be notified of exceptional conditions
+ *     such as out-of-band data on a socket; it is equivalent to POLLPRI
+ *     in the revents of poll()
+ * @param timeout if null will block indefinitely
+ * @param sigmask may be null in which case no mask change happens
  * @raise ECANCELED if thread was cancelled in masked mode
  * @raise EINTR if signal was delivered
  * @cancelationpoint
@@ -75,15 +82,8 @@ int pselect(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
   fd_set *old_exceptfds_ptr = 0;
 
   BEGIN_CANCELATION_POINT;
-  if (nfds < 0) {
+  if (nfds < 0 || nfds > FD_SETSIZE) {
     rc = einval();
-  } else if (IsAsan() &&
-             ((readfds && !__asan_is_valid(readfds, FD_SIZE(nfds))) ||
-              (writefds && !__asan_is_valid(writefds, FD_SIZE(nfds))) ||
-              (exceptfds && !__asan_is_valid(exceptfds, FD_SIZE(nfds))) ||
-              (timeout && !__asan_is_valid(timeout, sizeof(*timeout))) ||
-              (sigmask && !__asan_is_valid(sigmask, sizeof(*sigmask))))) {
-    rc = efault();
   } else {
     if (readfds) {
       old_readfds = *readfds;

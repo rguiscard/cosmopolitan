@@ -19,7 +19,7 @@
 #include "libc/proc/ntspawn.h"
 #include "libc/calls/struct/sigset.internal.h"
 #include "libc/calls/syscall_support-nt.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
 #include "libc/nt/createfile.h"
 #include "libc/nt/enum/accessmask.h"
 #include "libc/nt/enum/creationdisposition.h"
@@ -39,7 +39,7 @@
 #include "libc/nt/struct/startupinfo.h"
 #include "libc/nt/struct/startupinfoex.h"
 #include "libc/proc/ntspawn.h"
-#include "libc/stdalign.internal.h"
+#include "libc/stdalign.h"
 #include "libc/str/str.h"
 #include "libc/sysv/errfuns.h"
 #ifdef __x86_64__

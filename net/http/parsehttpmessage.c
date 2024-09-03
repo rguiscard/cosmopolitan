@@ -17,6 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
+#include "libc/ctype.h"
 #include "libc/limits.h"
 #include "libc/mem/alg.h"
 #include "libc/mem/arraylist.internal.h"
@@ -24,7 +25,7 @@
 #include "libc/serialize.h"
 #include "libc/stdio/stdio.h"
 #include "libc/str/str.h"
-#include "libc/str/tab.internal.h"
+#include "libc/str/tab.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/x/x.h"
 #include "net/http/http.h"
@@ -46,6 +47,7 @@ void DestroyHttpMessage(struct HttpMessage *r) {
     free(r->xheaders.p);
     r->xheaders.p = NULL;
     r->xheaders.n = 0;
+    r->xheaders.c = 0;
   }
 }
 

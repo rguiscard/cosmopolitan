@@ -27,3 +27,47 @@ TEST(snprintf, testVeryLargePrecision) {
   ASSERT_EQ(i, 9999);
   ASSERT_EQ(strlen(buf), 511);
 }
+
+TEST(snprintf, testPlusFlagOnChar) {
+  char buf[10] = {};
+  int i = snprintf(buf, sizeof(buf), "%+c", '=');
+
+  ASSERT_EQ(i, 1);
+  ASSERT_STREQ(buf, "=");
+}
+
+TEST(snprintf, testInf) {
+  char buf[10] = {};
+  int i = snprintf(buf, sizeof(buf), "%f", 1.0 / 0.0);
+
+  ASSERT_EQ(i, 3);
+  ASSERT_STREQ(buf, "inf");
+
+  memset(buf, 0, 4);
+  i = snprintf(buf, sizeof(buf), "%Lf", 1.0L / 0.0L);
+  ASSERT_EQ(i, 3);
+  ASSERT_STREQ(buf, "inf");
+
+  memset(buf, 0, 4);
+  i = snprintf(buf, sizeof(buf), "%e", 1.0 / 0.0);
+  ASSERT_EQ(i, 3);
+  ASSERT_STREQ(buf, "inf");
+
+  memset(buf, 0, 4);
+  i = snprintf(buf, sizeof(buf), "%Le", 1.0L / 0.0L);
+  ASSERT_EQ(i, 3);
+  ASSERT_STREQ(buf, "inf");
+
+  memset(buf, 0, 4);
+  i = snprintf(buf, sizeof(buf), "%g", 1.0 / 0.0);
+  ASSERT_EQ(i, 3);
+  ASSERT_STREQ(buf, "inf");
+
+  memset(buf, 0, 4);
+  i = snprintf(buf, sizeof(buf), "%Lg", 1.0L / 0.0L);
+  ASSERT_EQ(i, 3);
+  ASSERT_STREQ(buf, "inf");
+
+  for (i = 4; i < 10; ++i)
+    ASSERT_EQ(buf[i], '\0');
+}

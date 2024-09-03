@@ -39,15 +39,17 @@
 │ THIS SOFTWARE.                                                               │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
+#include "libc/ctype.h"
 #include "libc/errno.h"
 #include "libc/fmt/conv.h"
 #include "libc/fmt/divmod10.internal.h"
+#include "libc/fmt/internal.h"
 #include "libc/fmt/itoa.h"
 #include "libc/intrin/bsr.h"
-#include "libc/intrin/nomultics.internal.h"
-#include "libc/intrin/safemacros.internal.h"
+#include "libc/intrin/nomultics.h"
+#include "libc/intrin/safemacros.h"
 #include "libc/limits.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/math.h"
 #include "libc/mem/mem.h"
 #include "libc/mem/reverse.internal.h"
@@ -55,7 +57,7 @@
 #include "libc/serialize.h"
 #include "libc/str/str.h"
 #include "libc/str/strwidth.h"
-#include "libc/str/tab.internal.h"
+#include "libc/str/tab.h"
 #include "libc/str/thompike.h"
 #include "libc/str/unicode.h"
 #include "libc/str/utf16.h"
@@ -74,9 +76,9 @@
 #define FLAGS_PRECISION 0x20
 #define FLAGS_ISSIGNED  0x40
 #define FLAGS_NOQUOTE   0x80
+#define FLAGS_REPR      0x100
 #define FLAGS_QUOTE     FLAGS_SPACE
 #define FLAGS_GROUPING  FLAGS_NOQUOTE
-#define FLAGS_REPR      FLAGS_PLUS
 
 #define __FMT_PUT(C)              \
   do {                            \
@@ -448,7 +450,10 @@ static int __fmt_stoa(int out(const char *, void *, size_t), void *arg,
     } else if (signbit == 15) {
       precision = strnlen16((const char16_t *)p, precision);
     } else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overread"
       precision = strnlen(p, precision);
+#pragma GCC diagnostic pop
     }
   }
 
@@ -610,7 +615,7 @@ static void __fmt_ldfpbits(union U *u, struct FPBits *b) {
 #if LDBL_MANT_DIG == 113
       b->bits[3] |= 1 << (112 - 32 * 3);  // set lowest exponent bit
 #endif
-    } else if (b->bits[0] | b->bits[1] | b->bits[2] | b->bits[3]) {
+    } else if (isnan(u->ld)) {
       i = STRTOG_NaN;
     } else {
       i = STRTOG_Infinite;
@@ -816,7 +821,7 @@ static int __fmt_noop(const char *, void *, size_t) {
  * @asyncsignalsafe if floating point isn't used
  * @vforksafe if floating point isn't used
  */
-int __fmt(void *fn, void *arg, const char *format, va_list va) {
+int __fmt(void *fn, void *arg, const char *format, va_list va, int *wrote) {
   long ld;
   void *p;
   double x;
@@ -1117,7 +1122,7 @@ int __fmt(void *fn, void *arg, const char *format, va_list va) {
         }
         break;
       case 'n':
-        __FMT_PUT('\n');
+        *va_arg(va, int *) = *wrote;
         break;
 
       case 'F':
@@ -1140,8 +1145,10 @@ int __fmt(void *fn, void *arg, const char *format, va_list va) {
           s = s0 =
               gdtoa(fpb.fpi, fpb.ex, fpb.bits, &fpb.kind, 3, prec, &decpt, &se);
         }
-        if (decpt == 9999) {
-        Format9999:
+        if (s0 == NULL)
+          return -1;
+        if (decpt == 9999 || decpt == -32768) {
+        FormatDecpt9999Or32768:
           if (s0)
             freedtoa(s0);
           bzero(special, sizeof(special));
@@ -1253,8 +1260,10 @@ int __fmt(void *fn, void *arg, const char *format, va_list va) {
           s = s0 = gdtoa(fpb.fpi, fpb.ex, fpb.bits, &fpb.kind, prec ? 2 : 0,
                          prec, &decpt, &se);
         }
-        if (decpt == 9999)
-          goto Format9999;
+        if (s0 == NULL)
+          return -1;
+        if (decpt == 9999 || decpt == -32768)
+          goto FormatDecpt9999Or32768;
         c = se - s;
         prec1 = prec;
         if (!prec) {
@@ -1299,8 +1308,10 @@ int __fmt(void *fn, void *arg, const char *format, va_list va) {
           s = s0 = gdtoa(fpb.fpi, fpb.ex, fpb.bits, &fpb.kind, prec ? 2 : 0,
                          prec, &decpt, &se);
         }
-        if (decpt == 9999)
-          goto Format9999;
+        if (s0 == NULL)
+          return -1;
+        if (decpt == 9999 || decpt == -32768)
+          goto FormatDecpt9999Or32768;
       FormatExpo:
         if (fpb.sign /* && (x || sign) */)
           sign = '-';
@@ -1381,7 +1392,7 @@ int __fmt(void *fn, void *arg, const char *format, va_list va) {
         }
         if (fpb.kind == STRTOG_Infinite || fpb.kind == STRTOG_NaN) {
           s0 = 0;
-          goto Format9999;
+          goto FormatDecpt9999Or32768;
         }
         prec1 = __fmt_fpiprec(&fpb);
         if ((flags & FLAGS_PRECISION) && prec < prec1) {

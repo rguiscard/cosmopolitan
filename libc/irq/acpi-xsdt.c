@@ -26,11 +26,11 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/dce.h"
 #include "libc/intrin/atomic.h"
-#include "libc/intrin/directmap.internal.h"
+#include "libc/intrin/directmap.h"
 #include "libc/intrin/kprintf.h"
 #include "libc/irq/acpi.internal.h"
 #include "libc/log/color.internal.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/nt/efi.h"
 #include "libc/runtime/pc.internal.h"
 #include "libc/serialize.h"
