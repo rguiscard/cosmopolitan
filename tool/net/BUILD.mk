@@ -132,6 +132,7 @@ o/$(MODE)/tool/net/redbean-mruby.dbg:					\
 		o/$(MODE)/tool/net/redbean.png.zip.o			\
 		o/$(MODE)/tool/net/help.txt.zip.o			\
                 o/$(MODE)/tool/net/mruby/hello.mrb.zip.o		\
+                o/$(MODE)/tool/net/mruby/.init.mrb.zip.o		\
 		o/$(MODE)/tool/net/net.pkg				\
 		$(CRT)							\
 		$(APE_NO_MODIFY_SELF)
@@ -143,6 +144,10 @@ o/$(MODE)/tool/net/mruby/redbean-mruby.o: private			\
 			-I tool/net/mruby/
 
 o/$(MODE)/tool/net/mruby/hello.mrb.zip.o: private			\
+		ZIPOBJ_FLAGS +=						\
+			-B
+
+o/$(MODE)/tool/net/mruby/.init.mrb.zip.o: private			\
 		ZIPOBJ_FLAGS +=						\
 			-B
 

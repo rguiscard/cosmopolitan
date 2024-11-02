@@ -6157,6 +6157,9 @@ static char *HandleRequest(void) {
     FreeLater(ParseParams(inbuf.p + hdrsize, payloadlength, &url.params));
   }
   FreeLater(url.params.p);
+#ifdef USE_MRUBY
+  mrubyOnHttpRequest();
+#endif
 #ifndef STATIC
   if (hasonhttprequest)
     return LuaOnHttpRequest();
