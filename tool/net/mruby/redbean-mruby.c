@@ -95,8 +95,69 @@ int mrubyRunCode(char *code, char **outbuf) {
     return 0;
 }
 
+mrb_value redbean_get_path(mrb_state* mrb, mrb_value self) {
+     char path[url.path.n+1];
+     strncpy(path, url.path.p, url.path.n);
+     path[url.path.n] = '\0';
+     printf("redbean_get_path! %s\n", path);
+     return self;
+}
+
+mrb_value redbean_get_body(mrb_state* mrb, mrb_value self) {
+     printf("redbean_get_body! %d\n", payloadlength);
+     return self;
+}
+
+mrb_value redbean_get_header(mrb_state* mrb, mrb_value self) {
+  int h;
+  const char *key;
+  size_t i, keylen;
+  mrb_value arg;
+  mrb_get_args(mrb, "S", &arg);
+  key = string_from_mruby_value(arg);
+  keylen = strlen(key);
+  // printf("redbean_get_header! %s\n", key);
+//  OnlyCallDuringRequest(L, "GetHeader");
+//  key = luaL_checklstring(L, 1, &keylen);
+  if ((h = GetHttpHeader(key, keylen)) != -1) {
+    if (cpm.msg.headers[h].a) {
+      // printf("redbean_get_header! %s:%d\n", key, h);
+//      return LuaPushHeader(L, &cpm.msg, inbuf.p, h);
+      char *t;
+      size_t m;
+      if (!kHttpRepeatable[h]) {
+        t = DecodeLatin1(inbuf.p + cpm.msg.headers[h].a, cpm.msg.headers[h].b - cpm.msg.headers[h].a, &m); /// need to be freed
+      } else {
+        size_t vallen;
+        char *val = FoldHeader(&cpm.msg, inbuf.p, h, &vallen);
+        t = DecodeLatin1(val, vallen, &m); // need to be freed.
+      }
+      // printf("redbean_get_header! %d:%s\n", m, t);
+      return mrb_str_new_cstr(mrb, t);
+    }
+  } else {
+    for (i = 0; i < cpm.msg.xheaders.n; ++i) {
+      char *t;
+      size_t m;
+      if (SlicesEqualCase(
+              key, keylen, inbuf.p + cpm.msg.xheaders.p[i].k.a,
+              cpm.msg.xheaders.p[i].k.b - cpm.msg.xheaders.p[i].k.a)) {
+	// need to be freed
+	t = DecodeLatin1(inbuf.p + cpm.msg.xheaders.p[i].v.a, cpm.msg.xheaders.p[i].v.b - cpm.msg.xheaders.p[i].v.a, &m);
+        // printf("redbean_get_header!2 %d:%s\n", m, t);
+        return mrb_str_new_cstr(mrb, t);
+      }
+    }
+  }
+  return mrb_nil_value();
+}
+
 static void mrubyStart(void) {
     mrb = mrb_open();
+
+    mrb_define_method(mrb, mrb->kernel_module, "get_body", redbean_get_body, MRB_ARGS_NONE());
+    mrb_define_method(mrb, mrb->kernel_module, "get_path", redbean_get_path, MRB_ARGS_NONE());
+    mrb_define_method(mrb, mrb->kernel_module, "get_header", redbean_get_header, MRB_ARGS_REQ(1));
 }
 
 static void mrubyInit(void) {
@@ -108,7 +169,7 @@ static void mrubyDestroy(void) {
 }
 
 static void mrubyOnHttpRequest(void) {
-    printf("onHttpRequest => \n");
+    mrb_value result = mrb_load_string(mrb, "on_http_request if respond_to?(:on_http_request)");
 }
 
 int test_mruby()

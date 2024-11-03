@@ -1,3 +1,11 @@
 $global_variable="hello mruby"
 
 print $global_variable
+
+def on_http_request
+  print "on_http_request\n"
+  get_path
+  print get_header "HOST"
+  print get_header "User-Agent"
+end
+
