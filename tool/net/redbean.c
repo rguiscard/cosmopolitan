@@ -6158,7 +6158,9 @@ static char *HandleRequest(void) {
   }
   FreeLater(url.params.p);
 #ifdef USE_MRUBY
-  mrubyOnHttpRequest();
+  if (mruby_has_on_http_request()) {
+    return mrubyOnHttpRequest();
+  }
 #endif
 #ifndef STATIC
   if (hasonhttprequest)

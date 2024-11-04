@@ -7,8 +7,14 @@
 #include <mruby.h>
 #include <mruby/compile.h>
 #include <mruby/string.h>
+#include <mruby/hash.h>
 
 static mrb_state *mrb;
+bool has_onhttprequest = false;
+
+static bool mruby_has_on_http_request() {
+  return has_onhttprequest;
+}
 
 char* string_from_mruby_value(mrb_value result) {
   char *output = NULL;
@@ -30,7 +36,7 @@ mrb_value run_mruby(char *code) {
     if (mrb->exc) {
         mrb_print_error(mrb);
     } else {
-        printf("=> %s\n", string_from_mruby_value(result));
+//        printf("=> %s\n", string_from_mruby_value(result));
     }
 
     return result;
@@ -46,6 +52,7 @@ static bool mrubyRunAsset(const char *path, bool mandatory) {
     if ((code = FreeLater(LoadAsset(a, &codelen)))) {
       printf("mrubyRunAsset => %s\n", path);
       printf("===\n %s\n ===\n", code);
+      printf("==============\n", code);
 //      lua_State *L = GL;
       effectivepath.p = (void *)path;
       effectivepath.n = pathlen;
@@ -96,16 +103,52 @@ int mrubyRunCode(char *code, char **outbuf) {
 }
 
 mrb_value redbean_get_path(mrb_state* mrb, mrb_value self) {
-     char path[url.path.n+1];
-     strncpy(path, url.path.p, url.path.n);
-     path[url.path.n] = '\0';
-     printf("redbean_get_path! %s\n", path);
-     return self;
+  return mrb_str_new(mrb, url.path.p, url.path.n);
+}
+
+mrb_value redbean_get_effective_path(mrb_state* mrb, mrb_value self) {
+  return mrb_str_new(mrb, effectivepath.p, effectivepath.n);
+}
+
+mrb_value redbean_get_method(mrb_state* mrb, mrb_value self) {
+  char method[9] = {0};
+  WRITE64LE(method, cpm.msg.method);
+  return mrb_str_new_cstr(mrb, method);
 }
 
 mrb_value redbean_get_body(mrb_state* mrb, mrb_value self) {
      printf("redbean_get_body! %d\n", payloadlength);
      return self;
+}
+
+mrb_value redbean_get_http_version(mrb_state* mrb, mrb_value self) {
+  return mrb_fixnum_value(cpm.msg.version);
+}
+
+mrb_value redbean_get_scheme(mrb_state* mrb, mrb_value self) {
+  if (url.scheme.p) {
+    return mrb_str_new(mrb, url.scheme.p, url.scheme.n);
+  } else {
+    return mrb_nil_value();
+  }
+}
+
+mrb_value redbean_get_params(mrb_state* mrb, mrb_value self) {
+  struct UrlParams *h = &url.params;
+  size_t i;
+  mrb_value hash = mrb_hash_new(mrb);
+  for (i = 0; i < h->n; ++i) {
+    mrb_value k = mrb_str_new(mrb, h->p[i].key.p, h->p[i].key.n);
+    if (h->p[i].val.p) {
+      mrb_value v = mrb_str_new(mrb, h->p[i].val.p, h->p[i].val.n);
+      mrb_hash_set(mrb, hash, k, v);
+    } else {
+      mrb_hash_set(mrb, hash, k, mrb_nil_value());
+    }
+  }
+  // FIXME: if two identical keys exist, latter one will override former one.
+  // http://test.dev/?bar=123&bar=456 => {bar: 456}. 123 will be override.
+  return hash;
 }
 
 mrb_value redbean_get_header(mrb_state* mrb, mrb_value self) {
@@ -116,15 +159,14 @@ mrb_value redbean_get_header(mrb_state* mrb, mrb_value self) {
   mrb_get_args(mrb, "S", &arg);
   key = string_from_mruby_value(arg);
   keylen = strlen(key);
-  // printf("redbean_get_header! %s\n", key);
 //  OnlyCallDuringRequest(L, "GetHeader");
 //  key = luaL_checklstring(L, 1, &keylen);
   if ((h = GetHttpHeader(key, keylen)) != -1) {
     if (cpm.msg.headers[h].a) {
-      // printf("redbean_get_header! %s:%d\n", key, h);
 //      return LuaPushHeader(L, &cpm.msg, inbuf.p, h);
       char *t;
       size_t m;
+      mrb_value s;
       if (!kHttpRepeatable[h]) {
         t = DecodeLatin1(inbuf.p + cpm.msg.headers[h].a, cpm.msg.headers[h].b - cpm.msg.headers[h].a, &m); /// need to be freed
       } else {
@@ -133,19 +175,23 @@ mrb_value redbean_get_header(mrb_state* mrb, mrb_value self) {
         t = DecodeLatin1(val, vallen, &m); // need to be freed.
       }
       // printf("redbean_get_header! %d:%s\n", m, t);
-      return mrb_str_new_cstr(mrb, t);
+      s = mrb_str_new_cstr(mrb, t); // possible nil string ?
+      free(t);
+      return s;
     }
   } else {
     for (i = 0; i < cpm.msg.xheaders.n; ++i) {
       char *t;
       size_t m;
+      mrb_value s;
       if (SlicesEqualCase(
               key, keylen, inbuf.p + cpm.msg.xheaders.p[i].k.a,
               cpm.msg.xheaders.p[i].k.b - cpm.msg.xheaders.p[i].k.a)) {
 	// need to be freed
 	t = DecodeLatin1(inbuf.p + cpm.msg.xheaders.p[i].v.a, cpm.msg.xheaders.p[i].v.b - cpm.msg.xheaders.p[i].v.a, &m);
-        // printf("redbean_get_header!2 %d:%s\n", m, t);
-        return mrb_str_new_cstr(mrb, t);
+	s = mrb_str_new_cstr(mrb, t);
+	free(t);
+        return s;
       }
     }
   }
@@ -157,19 +203,40 @@ static void mrubyStart(void) {
 
     mrb_define_method(mrb, mrb->kernel_module, "get_body", redbean_get_body, MRB_ARGS_NONE());
     mrb_define_method(mrb, mrb->kernel_module, "get_path", redbean_get_path, MRB_ARGS_NONE());
+    mrb_define_method(mrb, mrb->kernel_module, "get_effective_path", redbean_get_effective_path, MRB_ARGS_NONE());
+    mrb_define_method(mrb, mrb->kernel_module, "get_method", redbean_get_method, MRB_ARGS_NONE());
+    mrb_define_method(mrb, mrb->kernel_module, "get_params", redbean_get_params, MRB_ARGS_NONE());
+    mrb_define_method(mrb, mrb->kernel_module, "get_scheme", redbean_get_scheme, MRB_ARGS_NONE());
+    mrb_define_method(mrb, mrb->kernel_module, "get_http_version", redbean_get_http_version, MRB_ARGS_NONE());
     mrb_define_method(mrb, mrb->kernel_module, "get_header", redbean_get_header, MRB_ARGS_REQ(1));
 }
 
 static void mrubyInit(void) {
   mrubyRunAsset("/.init.mrb", true);
+
+  if(mrb_obj_respond_to(mrb, mrb->object_class, mrb_intern_cstr(mrb, "on_http_request"))) {
+    has_onhttprequest = true;
+  }
 }
 
 static void mrubyDestroy(void) {
     mrb_close(mrb);
 }
 
-static void mrubyOnHttpRequest(void) {
-    mrb_value result = mrb_load_string(mrb, "on_http_request if respond_to?(:on_http_request)");
+static char* mrubyOnHttpRequest(void) {
+  const char *data = "Returned from OnHttpRequest";
+  effectivepath.p = url.path.p;
+  effectivepath.n = url.path.n;
+  mrb_value result = mrb_load_string(mrb, "on_http_request");
+  data = string_from_mruby_value(result);
+//  size_t size;
+//  OnlyCallDuringRequest(L, "Write");
+//  if (!lua_isnil(L, 1)) {
+//    data = luaL_checklstring(L, 1, &size);
+  appendd(&cpm.outbuf, data, strlen(data));
+//  }
+  UseOutput();
+  return CommitOutput(SetStatus(200, "OK"));
 }
 
 int test_mruby()

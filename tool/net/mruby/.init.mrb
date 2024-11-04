@@ -1,11 +1,14 @@
 $global_variable="hello mruby"
 
-print $global_variable
-
 def on_http_request
-  print "on_http_request\n"
-  get_path
-  print get_header "HOST"
-  print get_header "User-Agent"
+  puts "on_http_request\n"
+  puts "path: #{get_path}"
+  puts "effective path: #{get_effective_path}"
+  puts "method: #{get_method}"
+  puts "host: #{get_header 'HOST'}"
+  puts "user-agent: #{get_header 'User-Agent'}"
+  puts "http version: #{get_http_version}"
+  puts "scheme: #{get_scheme}"
+  puts get_params
 end
 
