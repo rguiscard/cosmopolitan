@@ -10,7 +10,7 @@ Go into cosmopolitan directory. Run `make -j8 o//tool/net/redbean` to be sure th
 
 ### mruby
 
-[mruby](https://mruby.org/) has its own compilation system based on rake. Therefore, the static library (`libmruby.a`) can be compiled with `cosmocc` in its project. Go to mruby directory. Put `cosmo.rb` under `build_config/` and compile with `rake MRUBY_CONFIG=cosmo`.
+[mruby](https://mruby.org/) has its own compilation system based on rake. Therefore, the static library (`libmruby.a`) can be compiled with `cosmocc` in its project. Go to mruby directory. Put `cosmo.rb` (see below) under `build_config/` and compile with `rake MRUBY_CONFIG=cosmo`.
 
 ```
 # build_config/cosmo.rb
@@ -94,11 +94,70 @@ Please note that mruby headers should stay in `third_party/mruby` while compiled
 
 ### example of mruby under cosmopolitan
 
-Make the example of mruby under cosmopolitan by running `o//examples/mruby/hello`. It creates an executable `o/examples/mruby/hello`. Run it to be sure mruby is correctly installed. You can also copy this `hello` to Windows. Rename it as `hello.com`and run. It should work. If there is any error, check file size of libmruby.a under `o/third_part/mruby` and see whether it is overrided with a dummy one. If so, copy the real one from mruby directory again.
+Make the example of mruby under cosmopolitan by running `make o//examples/mruby/hello`. It creates an executable `o/examples/mruby/hello`. Run it to be sure mruby is correctly installed. You can also copy this `hello` to Windows. Rename it as `hello.com`and run. It should work. If there is any error, check file size of libmruby.a under `o/third_part/mruby` and see whether it is overrided with a dummy one. If so, copy the real one from mruby directory again.
 
-### redbean-mruby (TODO)
+### redbean-mruby (work in progress)
 
-Run `make -j8 o//tool/net/redbean-mruby` to get redbean with mruby support.
+Run `make -j8 o//tool/net/redbean-mruby` to get redbean with mruby support. Run `o/tool/net/redbean-mruby` to start.
+
+A `tool/net/mruby/.init.mrb` example is included. It supports `on_http_request` hook and some redbean api. Since it intercepts all http requests, normal pages will not display. Use `curl http://127.0.0.1:8080/?foo&bar=123` to test. Or use a browser to check it.
+
+#### mruby-shelf (rack-like interface)
+
+Rails uses Rack for web server interface. There is a [mruby-shelf](https://github.com/katzer/mruby-shelf) for mruby. To use this gem, add the following line in mruby/build_config/cosmo.rb
+
+```
+  conf.gem :core => "mruby-shelf"
+```
+
+Also put mruby-shelf source code under `mruby/mrbgems/mruby-shelf/`. Run `rake MRUBY_CONFIG=cosmo` to rebuild libmruby.a and move it into your cosmo directory. Rebuild `redbean-mruby` by `make -j8 o//tool/net/redbean-mruby` and now mruby-shelf can be used like this in `.init.mrb`
+
+```
+def on_http_request
+  puts "on_http_request\n"
+  puts "path: #{get_path}"
+  puts "effective path: #{get_effective_path}"
+  puts "method: #{get_method}"
+  puts "host: #{get_header 'HOST'}"
+  puts "user-agent: #{get_header 'User-Agent'}"
+  puts "http version: #{get_http_version}"
+  puts "scheme: #{get_scheme}"
+  puts get_params
+
+  app = ShelfApp.new
+  output = app.call('REQUEST_METHOD' => get_method, 'PATH_INFO' => get_effective_path)
+
+  return output[-1][0]
+end
+
+class RootPage
+  def call(env)
+    s = <<-HEREDOC
+      <html>
+        <head></head>
+        <body>
+          <h1>This is root page</h1>
+        </body>
+      </html>
+    HEREDOC
+    [200, { 'content-type' => 'text/plain' }, [s]]
+  end
+end
+
+
+class ShelfApp
+  def initialize
+    @app = Shelf::Builder.app do
+       get('/users/{id}') { run ->(env) { [200, { 'content-type' => 'text/plain' }, [env.to_s]] } }
+       get('/') { run RootPage.new }
+    end
+  end
+
+  def call(env)
+    @app.call(env)
+  end
+end
+```
 
 ## TODO
 

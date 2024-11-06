@@ -10,7 +10,7 @@ Clang to output a POSIX-approved polyglot format that runs natively on
 Linux + Mac + Windows + FreeBSD + OpenBSD + NetBSD + BIOS with the best
 possible performance and the tiniest footprint imaginable.
 
-See [README.mruby](README.mruby.md) for this fork.
+See [README.mruby](README.mruby.md) for this fork with [mruby](https://mruby.org/) support.
 
 ## Background
 
