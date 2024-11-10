@@ -1,0 +1,59 @@
+$global_variable="hello mruby"
+
+def on_http_request
+  puts "on_http_request\n"
+  puts "path: #{get_path}"
+  puts "effective path: #{get_effective_path}"
+  puts "method: #{get_method}"
+  puts "host: #{get_header 'HOST'}"
+  puts "user-agent: #{get_header 'User-Agent'}"
+  puts "http version: #{get_http_version}"
+  puts "scheme: #{get_scheme}"
+  puts get_params
+
+  app = ShelfApp.new
+  output = app.call('REQUEST_METHOD' => get_method, 'PATH_INFO' => get_effective_path)
+
+  if (output.is_a?(String))
+    return output
+  elsif (output.is_a?(Array))
+    return output[-1][0] 
+  else
+    output.to_s
+  end
+
+end
+
+class RootPage
+  def call(env)
+    s = <<-HEREDOC
+      <html>
+        <head></head>
+        <body>
+          <h1>All your web pages belong to me.</h1>
+          <p>see <i>tool/net/mruby/.init.mrb</i> for details</p>
+          <p>User-Agent: #{get_header 'User-Agent'}</p>
+        </body>
+      </html>
+    HEREDOC
+    [200, { 'content-type' => 'text/plain' }, [s]]
+  end
+end
+
+class ShelfApp
+  def initialize
+    @yeah = Yeah.application
+    @yeah.routes.draw { get('/ok') { 'OK' } }
+
+#    @app = Shelf::Builder.app do
+#       get('/users/{id}') { run ->(env) { [200, { 'content-type' => 'text/plain' }, [env.to_s]] } }
+#       get('/') { run RootPage.new }
+#    end
+    @yeah
+  end
+
+  def call(env)
+    @yeah.app.call(env)
+  end
+end
+
