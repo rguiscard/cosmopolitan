@@ -40,6 +40,7 @@ EXAMPLES_BINS =							\
 
 EXAMPLES_DIRECTDEPS =						\
 	CTL							\
+	DSP_AUDIO						\
 	DSP_CORE						\
 	DSP_SCALE						\
 	DSP_TTY							\
@@ -148,6 +149,10 @@ o/$(MODE)/examples/nesemu1.dbg:					\
 o/$(MODE)/examples/picol.o: private				\
 		CPPFLAGS +=					\
 			-DSTACK_FRAME_UNLIMITED
+
+o/$(MODE)/examples/nesemu1.o: private				\
+		CPPFLAGS +=					\
+			-O3
 
 o/$(MODE)/examples/picol.dbg:					\
 		$(EXAMPLES_DEPS)				\

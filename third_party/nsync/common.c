@@ -180,9 +180,8 @@ static waiter *free_waiters_pop (void) {
 
 static void free_waiters_populate (void) {
 	int n;
-	if (IsNetbsd () || (NSYNC_USE_GRAND_CENTRAL && IsXnuSilicon ())) {
+	if (IsNetbsd ()) {
 		// netbsd needs a real file descriptor per semaphore
-		// tim cook wants us to use his lol central dispatch
 		n = 1;
 	} else {
 		n = __pagesize / sizeof(waiter);

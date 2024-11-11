@@ -1,15 +1,15 @@
-// config
-#define USE        POSIX
-#define ITERATIONS 50000
-#define THREADS    10
+#define USE        POSIX_RECURSIVE
+#define ITERATIONS 100000
+#define THREADS    30
 
-// USE may be
-#define SPIN  1
-#define FUTEX 2
-#define POSIX 3
+#define SPIN            1
+#define FUTEX           2
+#define POSIX           3
+#define POSIX_RECURSIVE 4
 
 #ifdef __COSMOPOLITAN__
 #include <cosmo.h>
+#include "libc/thread/thread.h"
 #include "third_party/nsync/futex.internal.h"
 #endif
 
@@ -26,6 +26,7 @@
 #include <linux/futex.h>
 #include <sys/syscall.h>
 static inline long nsync_futex_wait_(atomic_int *uaddr, int val, char pshare,
+                                     int clock,
                                      const struct timespec *timeout) {
   return syscall(SYS_futex, uaddr, pshare ? FUTEX_WAIT : FUTEX_WAIT_PRIVATE,
                  val, timeout, NULL, 0);
@@ -144,25 +145,40 @@ static inline long nsync_futex_wake_(atomic_int *uaddr, int num_to_wake,
 //          216,236 us user
 //          127,344 us sys
 //
-// footek_test on freebsd.test.         613 µs    2'120 µs     133'272 µs
+// footek_test on freebsd.test. (cosmo)
 //          126,803 us real
 //            3,100 us user
 //          176,744 us sys
+//
+// footek_test on freebsd.test. (freebsd libc)
+//          219,073 us real
+//          158,103 us user
+//        1,146,252 us sys
 //
 // footek_test on netbsd.test.          350 µs    3'570 µs     262'186 µs
 //          199,882 us real
 //          138,178 us user
 //          329,501 us sys
 //
-// footek_test on openbsd.test.         454 µs    2'185 µs     153'258 µs
+// footek_test on openbsd.test. (cosmo)
 //          138,619 us real
 //           30,000 us user
 //          110,000 us sys
 //
-// footek_test on win10.test.           233 µs    6'133 µs     260'812 µs
+// footek_test on openbsd.test. (openbsd libc)
+//          385,431 us real
+//           80,000 us user
+//        1,350,000 us sys
+//
+// footek_test on win10.test. (cosmo)
 //          156,382 us real
 //          312,500 us user
 //           31,250 us sys
+//
+// footek_test on win10.test. (cygwin)
+//        9,334,610 us real
+//        1,562,000 us user
+//        6,093,000 us sys
 
 // arm fleet
 // with spin lock
@@ -261,7 +277,9 @@ void lock(atomic_int *futex) {
   while (word > 0) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cs);
 #if USE == FUTEX
-    nsync_futex_wait_(futex, 2, 0, 0);
+    nsync_futex_wait_(futex, 2, 0, 0, 0);
+#else
+    pthread_yield_np();
 #endif
     pthread_setcancelstate(cs, 0);
     word = atomic_exchange_explicit(futex, 2, memory_order_acquire);
@@ -280,11 +298,11 @@ void unlock(atomic_int *futex) {
 
 int g_chores;
 atomic_int g_lock;
-pthread_mutex_t g_locker = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t g_locker;
 
 void *worker(void *arg) {
   for (int i = 0; i < ITERATIONS; ++i) {
-#if USE == POSIX
+#if USE == POSIX || USE == POSIX_RECURSIVE
     pthread_mutex_lock(&g_locker);
     ++g_chores;
     pthread_mutex_unlock(&g_locker);
@@ -315,6 +333,17 @@ int main() {
   struct timeval start;
   gettimeofday(&start, 0);
 
+  pthread_mutex_t lock;
+  pthread_mutexattr_t attr;
+  pthread_mutexattr_init(&attr);
+#if USE == POSIX_RECURSIVE
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+#else
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
+#endif
+  pthread_mutex_init(&g_locker, &attr);
+  pthread_mutexattr_destroy(&attr);
+
   pthread_t th[THREADS];
   for (int i = 0; i < THREADS; ++i)
     pthread_create(&th[i], 0, worker, 0);
@@ -332,6 +361,8 @@ int main() {
          tomicros(tub(end, start)),  //
          tomicros(ru.ru_utime),      //
          tomicros(ru.ru_stime));
+
+  pthread_mutex_destroy(&lock);
 
 #ifdef __COSMOPOLITAN__
   CheckForMemoryLeaks();

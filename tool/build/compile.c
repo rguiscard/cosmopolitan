@@ -111,9 +111,9 @@ FLAGS\n\
   -T TARGET    specifies target name for V=0 logging\n\
   -A ACTION    specifies short command name for V=0 logging\n\
   -V NUMBER    specifies compiler version\n\
-  -C SECS      set cpu limit [default 16]\n\
+  -C SECS      set cpu limit [default 32]\n\
   -L SECS      set lat limit [default 90]\n\
-  -P PROCS     set pro limit [default 4096]\n\
+  -P PROCS     set pro limit [default 8192]\n\
   -S BYTES     set stk limit [default 8m]\n\
   -M BYTES     set mem limit [default 2048m]\n\
   -F BYTES     set fsz limit [default 256m]\n\
@@ -228,8 +228,6 @@ const char *const kSafeEnv[] = {
     "TERM",         // needed to detect colors
     "TMPDIR",       // needed by compiler
 };
-
-#include "libc/mem/tinymalloc.inc"
 
 void OnAlrm(int sig) {
   ++gotalrm;
@@ -800,7 +798,11 @@ bool MovePreservingDestinationInode(const char *from, const char *to) {
     rc = copy_file_range(fdin, 0, fdout, 0, remain, 0);
     if (rc != -1) {
       remain -= rc;
-    } else if (errno == EXDEV || errno == ENOSYS) {
+    } else if (errno == EXDEV ||    // different partitions
+               errno == EINVAL ||   // possible w/ ecryptfs
+               errno == ENOSYS ||   // not linux or freebsd
+               errno == ENOTSUP ||  // no fs support for it
+               errno == EOPNOTSUPP) {
       if (lseek(fdin, 0, SEEK_SET) == -1) {
         res = false;
         break;
@@ -862,7 +864,7 @@ int main(int argc, char *argv[]) {
   verbose = 4;
   timeout = 90;                    // secs
   cpuquota = 32;                   // secs
-  proquota = 4096;                 // procs
+  proquota = 8192;                 // procs
   stkquota = 8 * 1024 * 1024;      // bytes
   fszquota = 256 * 1000 * 1000;    // bytes
   memquota = 2048L * 1024 * 1024;  // bytes
