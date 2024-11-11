@@ -3324,7 +3324,7 @@ static char *ServeMRuby(struct Asset *a, const char *s, size_t n) {
   if ((code = FreeLater(LoadAsset(a, &codelen)))) {
     int status = mrubyRunCode(code, &cpm.outbuf);
     if (status == 0) { // OK
-      UseOutput();
+//      UseOutput();
       return CommitOutput(SetStatus(200, "OK"));
     } else {
       // Error

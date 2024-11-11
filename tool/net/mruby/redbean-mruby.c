@@ -198,6 +198,73 @@ mrb_value redbean_get_header(mrb_state* mrb, mrb_value self) {
   return mrb_nil_value();
 }
 
+static const char *check_path(mrb_value value, size_t *pathlen) {
+  const char *path;
+  if (mrb_nil_p(value)) {
+    // not actually used in redbean.c
+    path = url.path.p;
+    *pathlen = url.path.n;
+  } else {
+    path = string_from_mruby_value(value);
+    *pathlen = strlen(path);
+    if (!IsReasonablePath(path, *pathlen)) {
+      WARNF("(srvr) bad path %`'.*s", *pathlen, path);
+      return NULL;
+    }
+  }
+  /*
+  if (idx < 1)lua_isnoneornil(L, idx)) {
+    path = url.path.p;
+    *pathlen = url.path.n;
+  } else {
+    path = luaL_checklstring(L, idx, pathlen);
+    if (!IsReasonablePath(path, *pathlen)) {
+      WARNF("(srvr) bad path %`'.*s", *pathlen, path);
+      luaL_argerror(L, idx, "bad path");
+      __builtin_unreachable();
+    }
+  }
+  */
+  return path;
+}
+
+mrb_value redbean_load_asset(mrb_state* mrb, mrb_value self) {
+  void *data;
+  struct Asset *a;
+  const char *path;
+  size_t size, pathlen;
+  mrb_value arg;
+  mrb_get_args(mrb, "S", &arg);
+  path = check_path(arg, &pathlen);
+//  printf("load asset at path %s\n", path);
+
+//  path = LuaCheckPath(L, 1, &pathlen);
+  if ((a = GetAsset(path, pathlen))) {
+    if (!a->file && !IsCompressed(a)) {
+      /* fast path: this avoids extra copy */
+      data = ZIP_LFILE_CONTENT(zmap + a->lf);
+      size = GetZipLfileUncompressedSize(zmap + a->lf);
+      if (Verify(data, size, ZIP_LFILE_CRC32(zmap + a->lf))) {
+//	printf("load asset %s", data);
+//        lua_pushlstring(L, data, size);
+        return mrb_str_new_cstr(mrb, data);
+      }
+      // any error from Verify has already been reported
+    } else if ((data = LoadAsset(a, &size))) {
+//      printf("load asset %s\n", data);
+//      lua_pushlstring(L, data, size);
+      mrb_value mdata = mrb_str_new_cstr(mrb, data);
+      free(data);
+      return mdata;
+    } else {
+      WARNF("(srvr) could not load asset: %`'.*s", pathlen, path);
+    }
+  } else {
+    WARNF("(srvr) could not find asset: %`'.*s", pathlen, path);
+  }
+  return mrb_nil_value();
+}
+
 static void mrubyStart(void) {
     mrb = mrb_open();
 
@@ -209,6 +276,7 @@ static void mrubyStart(void) {
     mrb_define_method(mrb, mrb->kernel_module, "get_scheme", redbean_get_scheme, MRB_ARGS_NONE());
     mrb_define_method(mrb, mrb->kernel_module, "get_http_version", redbean_get_http_version, MRB_ARGS_NONE());
     mrb_define_method(mrb, mrb->kernel_module, "get_header", redbean_get_header, MRB_ARGS_REQ(1));
+    mrb_define_method(mrb, mrb->kernel_module, "load_asset", redbean_load_asset, MRB_ARGS_REQ(1));
 }
 
 static void mrubyInit(void) {
@@ -227,7 +295,14 @@ static char* mrubyOnHttpRequest(void) {
   const char *data = "Returned from OnHttpRequest";
   effectivepath.p = url.path.p;
   effectivepath.n = url.path.n;
-  mrb_value result = mrb_load_string(mrb, "on_http_request");
+  printf("mrubyOnHttpRequest %s\n", effectivepath.p);
+
+  if (mrb->exc) {
+    mrb_print_backtrace(mrb);
+  }
+
+//  mrb_value result = mrb_load_string(mrb, "on_http_request");
+  mrb_value result = mrb_funcall(mrb, mrb_top_self(mrb), "on_http_request", 0);
   data = string_from_mruby_value(result);
 //  size_t size;
 //  OnlyCallDuringRequest(L, "Write");
