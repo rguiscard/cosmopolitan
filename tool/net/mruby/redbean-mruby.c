@@ -6,8 +6,9 @@
 
 #include <mruby.h>
 #include <mruby/compile.h>
-#include <mruby/string.h>
+#include <mruby/array.h>
 #include <mruby/hash.h>
+#include <mruby/string.h>
 
 static mrb_state *mrb;
 bool has_onhttprequest = false;
@@ -50,9 +51,9 @@ static bool mrubyRunAsset(const char *path, bool mandatory) {
   pathlen = strlen(path);
   if ((a = GetAsset(path, pathlen))) {
     if ((code = FreeLater(LoadAsset(a, &codelen)))) {
-      printf("mrubyRunAsset => %s\n", path);
-      printf("===\n %s\n ===\n", code);
-      printf("==============\n", code);
+//      printf("mrubyRunAsset => %s\n", path);
+//      printf("===\n %s\n ===\n", code);
+//      printf("==============\n", code);
 //      lua_State *L = GL;
       effectivepath.p = (void *)path;
       effectivepath.n = pathlen;
@@ -198,60 +199,40 @@ mrb_value redbean_get_header(mrb_state* mrb, mrb_value self) {
   return mrb_nil_value();
 }
 
-static const char *check_path(mrb_value value, size_t *pathlen) {
-  const char *path;
-  if (mrb_nil_p(value)) {
-    // not actually used in redbean.c
-    path = url.path.p;
-    *pathlen = url.path.n;
-  } else {
-    path = string_from_mruby_value(value);
-    *pathlen = strlen(path);
-    if (!IsReasonablePath(path, *pathlen)) {
-      WARNF("(srvr) bad path %`'.*s", *pathlen, path);
-      return NULL;
-    }
-  }
-  /*
-  if (idx < 1)lua_isnoneornil(L, idx)) {
-    path = url.path.p;
-    *pathlen = url.path.n;
-  } else {
-    path = luaL_checklstring(L, idx, pathlen);
-    if (!IsReasonablePath(path, *pathlen)) {
-      WARNF("(srvr) bad path %`'.*s", *pathlen, path);
-      luaL_argerror(L, idx, "bad path");
-      __builtin_unreachable();
-    }
-  }
-  */
-  return path;
-}
-
 mrb_value redbean_load_asset(mrb_state* mrb, mrb_value self) {
   void *data;
   struct Asset *a;
   const char *path;
   size_t size, pathlen;
-  mrb_value arg;
-  mrb_get_args(mrb, "S", &arg);
-  path = check_path(arg, &pathlen);
-//  printf("load asset at path %s\n", path);
 
-//  path = LuaCheckPath(L, 1, &pathlen);
+  mrb_get_args(mrb, "s", &path, &pathlen);
+  printf("load_asset %s %d\n", path, pathlen);
+
+  // redbean.c CheckPath
+  if (pathlen == 0) {
+    // not actually used in redbean.c
+    path = url.path.p;
+    pathlen = url.path.n;
+  } else {
+    if (!IsReasonablePath(path, pathlen)) {
+      WARNF("(srvr) bad path %`'.*s", pathlen, path);
+      // raise exception ?
+      __builtin_unreachable();
+      return self;
+    }
+  }
+
   if ((a = GetAsset(path, pathlen))) {
     if (!a->file && !IsCompressed(a)) {
       /* fast path: this avoids extra copy */
       data = ZIP_LFILE_CONTENT(zmap + a->lf);
       size = GetZipLfileUncompressedSize(zmap + a->lf);
       if (Verify(data, size, ZIP_LFILE_CRC32(zmap + a->lf))) {
-//	printf("load asset %s", data);
 //        lua_pushlstring(L, data, size);
         return mrb_str_new_cstr(mrb, data);
       }
       // any error from Verify has already been reported
     } else if ((data = LoadAsset(a, &size))) {
-//      printf("load asset %s\n", data);
 //      lua_pushlstring(L, data, size);
       mrb_value mdata = mrb_str_new_cstr(mrb, data);
       free(data);
@@ -265,6 +246,155 @@ mrb_value redbean_load_asset(mrb_state* mrb, mrb_value self) {
   return mrb_nil_value();
 }
 
+static char *getLuaResponse(void) {
+  return cpm.luaheaderp ? cpm.luaheaderp : SetStatus(200, "OK");
+}
+
+// LuaRespond
+static int respondWithCode(int code, const char **reason, char *R(unsigned, const char *)) {
+  char *p;
+  size_t reasonlen;
+//  OnlyCallDuringRequest(L, "Respond");
+  if (!(100 <= code && code <= 999)) {
+    //luaL_argerror(L, 1, "bad status code");
+    // raise error ?
+    __builtin_unreachable();
+  }
+
+  if (*reason == NULL) {
+    cpm.luaheaderp = R(code, GetHttpReason(code));
+  } else {
+    printf("reason not null\n");
+  }
+  return 0;
+
+  // FIXME: need to handle -else-
+  if (*reason == NULL) {
+//  if (lua_isnoneornil(L, 2)) {
+    printf("reason null\n");
+    return 0;
+    const char *t = GetHttpReason(code);
+    printf("reason %s\n", t);
+    return 0;
+    cpm.luaheaderp = R(code, GetHttpReason(code));
+  } else {
+    printf("reason not null\n");
+//    reason = lua_tolstring(L, 2, &reasonlen);
+    reasonlen = strlen(*reason);
+    if ((p = EncodeHttpHeaderValue(*reason, MIN(reasonlen, 128), 0))) {
+      cpm.luaheaderp = R(code, p);
+      free(p);
+    } else {
+      // raise error ?
+      // luaL_argerror(L, 2, "invalid");
+      __builtin_unreachable();
+    }
+  }
+  return 0;
+}
+
+mrb_value redbean_set_status(mrb_state* mrb, mrb_value self) {
+//  LuaRespond(L, SetStatus);
+  printf("redbean_set_status\n");
+  int code;
+  const char *reason;
+  mrb_get_args(mrb, "i|z!", &code, &reason);
+  printf("(%d) %s\n", code, reason);
+  respondWithCode(code, &reason, SetStatus);
+  return self;
+}
+
+mrb_value redbean_set_header(mrb_state* mrb, mrb_value self) {
+  int h;
+  char *eval;
+  char *p, *q;
+  const char *key, *val;
+  size_t keylen, vallen, evallen;
+  // OnlyCallDuringRequest(L, "SetHeader");
+  mrb_get_args(mrb, "ss!", &key, &keylen, &val, &vallen);
+  printf("%s (%d): %s (%d)\n", key, keylen, val, vallen);
+  if (vallen == 0) // if (!val)
+    return self;
+  if ((h = GetHttpHeader(key, keylen)) == -1) {
+    if (!IsValidHttpToken(key, keylen)) {
+      printf("invalid http token %s (%d)\n", key, keylen);
+      // raise error (mrb_raise) ?
+      __builtin_unreachable();
+    }
+  }
+  if (!(eval = EncodeHttpHeaderValue(val, vallen, &evallen))) {
+    // raise error (mrb_raise) ?
+    __builtin_unreachable();
+  }
+  p = getLuaResponse(); // mruby version of GetLuaResponse()
+  while (p - hdrbuf.p + keylen + 2 + evallen + 2 + 512 > hdrbuf.n) {
+    hdrbuf.n += hdrbuf.n >> 1;
+    q = xrealloc(hdrbuf.p, hdrbuf.n);
+    cpm.luaheaderp = p = q + (p - hdrbuf.p);
+    hdrbuf.p = q;
+  }
+  switch (h) {
+    case kHttpConnection:
+      connectionclose = SlicesEqualCase(eval, evallen, "close", 5);
+      break;
+    case kHttpContentType:
+      p = AppendContentType(p, eval);
+      break;
+    case kHttpReferrerPolicy:
+      cpm.referrerpolicy = FreeLater(strdup(eval));
+      break;
+    case kHttpServer:
+      cpm.branded = true;
+      p = AppendHeader(p, "Server", eval);
+      break;
+    case kHttpExpires:
+    case kHttpCacheControl:
+      cpm.gotcachecontrol = true;
+      p = AppendHeader(p, key, eval);
+      break;
+    case kHttpXContentTypeOptions:
+      cpm.gotxcontenttypeoptions = true;
+      p = AppendHeader(p, key, eval);
+      break;
+    default:
+      p = AppendHeader(p, key, eval);
+      break;
+  }
+  cpm.luaheaderp = p;
+  free(eval);
+  return self;
+}
+
+mrb_value redbean_get_zip_paths(mrb_state* mrb, mrb_value self) {
+  char *path;
+  uint8_t *zcf;
+  size_t n, pathlen, prefixlen;
+  const char* prefix;
+  if (mrb_get_argc(mrb) > 0) {
+    mrb_get_args(mrb, "s", &prefix, &prefixlen);
+  } else {
+    prefix = "";
+    prefixlen = 0;
+  }
+  printf("prefix %s %d\n", prefix, prefixlen);
+
+  n = GetZipCdirRecords(zcdir);
+  mrb_value m_ary = mrb_ary_new(mrb);
+  for (zcf = zmap + GetZipCdirOffset(zcdir); n--;
+       zcf += ZIP_CFILE_HDRSIZE(zcf)) {
+    CHECK_EQ(kZipCfileHdrMagic, ZIP_CFILE_MAGIC(zcf));
+    path = GetAssetPath(zcf, &pathlen);
+    if (prefixlen == 0 || startswith(path, prefix)) {
+//      printf("path %s\n", path);
+      mrb_ary_push(mrb, m_ary, mrb_str_new_cstr(mrb, path));
+//      lua_pushlstring(L, path, pathlen);
+//      lua_seti(L, -2, ++i);
+    }
+    free(path);
+  }
+  return m_ary;
+}
+
 static void mrubyStart(void) {
     mrb = mrb_open();
 
@@ -276,7 +406,11 @@ static void mrubyStart(void) {
     mrb_define_method(mrb, mrb->kernel_module, "get_scheme", redbean_get_scheme, MRB_ARGS_NONE());
     mrb_define_method(mrb, mrb->kernel_module, "get_http_version", redbean_get_http_version, MRB_ARGS_NONE());
     mrb_define_method(mrb, mrb->kernel_module, "get_header", redbean_get_header, MRB_ARGS_REQ(1));
+    mrb_define_method(mrb, mrb->kernel_module, "set_header", redbean_set_header, MRB_ARGS_REQ(2));
+    mrb_define_method(mrb, mrb->kernel_module, "set_status", redbean_set_status, MRB_ARGS_REQ(2));
+
     mrb_define_method(mrb, mrb->kernel_module, "load_asset", redbean_load_asset, MRB_ARGS_REQ(1));
+    mrb_define_method(mrb, mrb->kernel_module, "get_zip_paths", redbean_get_zip_paths, MRB_ARGS_OPT(1));
 }
 
 static void mrubyInit(void) {
@@ -295,7 +429,6 @@ static char* mrubyOnHttpRequest(void) {
   const char *data = "Returned from OnHttpRequest";
   effectivepath.p = url.path.p;
   effectivepath.n = url.path.n;
-  printf("mrubyOnHttpRequest %s\n", effectivepath.p);
 
   if (mrb->exc) {
     mrb_print_backtrace(mrb);
@@ -309,9 +442,8 @@ static char* mrubyOnHttpRequest(void) {
 //  if (!lua_isnil(L, 1)) {
 //    data = luaL_checklstring(L, 1, &size);
   appendd(&cpm.outbuf, data, strlen(data));
-//  }
-  UseOutput();
-  return CommitOutput(SetStatus(200, "OK"));
+  UseOutput(); // Not sure this is required
+  return CommitOutput(getLuaResponse());
 }
 
 int test_mruby()

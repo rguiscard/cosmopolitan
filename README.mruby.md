@@ -157,7 +157,12 @@ class ShelfApp
     @app.call(env)
   end
 end
+
 ```
+
+## Update
+
+Whenever a new version is installed, mostly likely under `.cosmocc` of cosmopolitan repository, libmruby.a need to be rebuilt. Change `COSMO_PATH` in mruby build_config to new path, compile and move `libmruby.a` into `o/third_party/mruby`.
 
 ## TODO
 
